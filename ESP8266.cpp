@@ -69,6 +69,9 @@ ESP8266::ESP8266(HardwareSerial &uart, uint32_t baud): m_puart(&uart)
 
 static char ESP8266::_receive_buffer[_ESP_MAX_READ_BUFF];
 static char ESP8266::_receive_char;
+static bool ESP8266::_dataStarted = false;
+static size_t ESP8266::_dataLenth = SIZE_MAX;
+
 bool ESP8266::kick(void)
 {
     return eAT();
@@ -316,87 +319,87 @@ uint32_t ESP8266::recv(uint8_t *coming_mux_id, uint8_t *buffer, uint32_t buffer_
 /* +IPD,<id>,<len>:<data> */
 /* +IPD,<len>:<data> */
 
-uint32_t ESP8266::recvPkg(uint8_t *buffer, uint32_t buffer_size, uint32_t *data_len, uint32_t timeout, uint8_t *coming_mux_id)
+
+uint32_t ESP8266::recvPkg(uint8_t* buffer, uint32_t buffer_size, uint32_t* data_len, uint32_t timeout, uint8_t* coming_mux_id)
 {
-    char* index_PIPDcomma = nullptr;
-    char* index_colon = nullptr; /* : */
-    char* index_comma = nullptr; /* , */
-    int32_t len = -1;
-    int8_t id = -1;
-    bool has_data = false;
-    uint32_t ret;
-    unsigned long start;
-    uint32_t i;
-    char idbuff[4];
-    
+    char infobuff[10];
+    bool colonFound = false;
+    bool plusFound = false;
+    bool infoStarted = false;
+
     if (buffer == NULL) {
         return 0;
     }
     size_t ii = 0;
-    start = millis();
-    while (millis() - start < timeout && ii < (_ESP_MAX_READ_BUFF - 1)) {
-        if(m_puart->available() > 0) {
-            _receive_buffer[ii++] = m_puart->read();
+    size_t ib = 0;
+    uint32_t start = millis();
+    while (millis() - start < timeout && ii < buffer_size && ii < _dataLenth) {
+        if (m_puart->available() <= 0) {
+            continue;
         }
-        _receive_buffer[ii] = '\0';
-        index_PIPDcomma = strstr(_receive_buffer, "+IPD,");
-        if (index_PIPDcomma != nullptr) {
-            index_colon = strchr(index_PIPDcomma + 5, ':');
-            if (index_colon != nullptr) {
-                index_comma = strchr(index_PIPDcomma + 5, ',');
-                /* +IPD,id,len:data */
-                if (index_comma != nullptr && index_comma < index_colon) { 
-                    strncpy(idbuff, index_PIPDcomma + 5, index_comma - index_PIPDcomma - 5);
-                    idbuff[index_comma - index_PIPDcomma - 5] = '\0';
-                    id = atoi(idbuff);
-                    if (id < 0 || id > 4) {
-                        return 0;
-                    }
-                    strncpy(idbuff, index_comma + 1, index_colon - index_comma - 1);
-                    idbuff[index_colon - index_comma - 1] = '\0';
-                    len = atoi(idbuff);
-                    if (len <= 0) {
-                        return 0;
-                    }
-                } else { /* +IPD,len:data */
-                    strncpy(idbuff, index_PIPDcomma + 5, index_colon - index_PIPDcomma - 5);
-                    idbuff[index_colon - index_PIPDcomma - 5] = '\0';
-                    len = atoi(idbuff);
-                    if (len <= 0) {
-                        return 0;
-                    }
+        _receive_char = m_puart->read();
+        if (_dataStarted) {
+            buffer[ii++] = _receive_char;
+        }
+        else if (plusFound) {
+            if (_receive_char == ':') {
+                _dataStarted = true;
+                if (infoStarted) {
+                    infobuff[ib] = '\0';
+                    _dataLenth = atoi(infobuff);
                 }
-                has_data = true;
-                break;
             }
+            else if (_receive_char == ',') {
+                if (infoStarted && coming_mux_id != nullptr) {
+                    infobuff[ib] = '\0';
+                    *coming_mux_id = atoi(infobuff);
+                }
+                else {
+                    infoStarted = true;
+                    ib = 0;
+                }
+            }
+            else if (infoStarted && ib < sizeof(infobuff) - 1) {
+                infobuff[ib++] = _receive_char;
+            }
+        }
+        else if (_receive_char == '+') {
+            plusFound = true;
         }
     }
-    
-    if (has_data) {
-        i = 0;
-        ret = len > buffer_size ? buffer_size : len;
-        start = millis();
-        while (millis() - start < 3000) {
-            while(m_puart->available() > 0 && i < ret) {
-                buffer[i++] = m_puart->read();
-            }
-            if (i == ret) {
-                rx_empty();
-                if (data_len) {
-                    *data_len = len;    
-                }
-                if (index_comma != -1 && coming_mux_id) {
-                    *coming_mux_id = id;
-                }
-                return ret;
-            }
-        }
+
+    if (data_len != nullptr) {
+        *data_len = _dataLenth;
     }
-    return 0;
+
+    if (ii < buffer_size) {
+        rx_empty();
+    }
+
+    /*
+    char str[93];
+    memset(str, '\0', 93);
+    unsigned char* pin = _receive_buffer;
+    const char* hex = "0123456789ABCDEF";
+    char* pout = str;
+    int i3 = 0;
+    for (; i3 < ii && i3 < 30; ++i3) {
+        *pout++ = hex[(*pin >> 4) & 0xF];
+        *pout++ = hex[(*pin++) & 0xF];
+        *pout++ = ':';
+    }
+    *pout++ = hex[(*pin >> 4) & 0xF];
+    *pout++ = hex[(*pin) & 0xF];
+    *pout = 0;
+    logDebug(str);*/
+    return ii;
 }
+
 
 void ESP8266::rx_empty(void) 
 {
+    _dataStarted = false;
+    _dataLenth = SIZE_MAX;
     while(m_puart->available() > 0) {
         m_puart->read();
     }
@@ -466,7 +469,7 @@ bool ESP8266::recvFindAndFilter(const char* target, const char* begin, const cha
             return true;
         }
     }
-    data = "";
+    data = nullptr;
     return false;
 }
 
@@ -630,7 +633,6 @@ bool ESP8266::eATCWLIF(const char* &list)
 }
 bool ESP8266::eATCIPSTATUS(const char* &list)
 {
-    const char* data;
     delay(100);
     rx_empty();
     m_puart->println("AT+CIPSTATUS");
@@ -677,12 +679,12 @@ bool ESP8266::sATCIPSENDSingle(const uint8_t *buffer, uint32_t len)
     rx_empty();
     m_puart->print("AT+CIPSEND=");
     m_puart->println(len);
-    if (recvFind(">", 5000)) {
+    if (recvFind(">", 2000)) {
         rx_empty();
         for (uint32_t i = 0; i < len; i++) {
             m_puart->write(buffer[i]);
         }
-        return recvFind("SEND OK", 10000);
+        return recvFind("SEND OK", 500);
     }
     return false;
 }

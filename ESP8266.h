@@ -31,7 +31,7 @@
 #endif
 
 #ifndef _ESP_MAX_READ_BUFF
-#define _ESP_MAX_READ_BUFF 256 // RX buffer size
+#define _ESP_MAX_READ_BUFF 192 // RX buffer size
 #endif
 
 /**
@@ -377,7 +377,7 @@ class ESP8266 {
      * @param timeout - the time waiting data. 
      * @return the length of data received actually. 
      */
-    uint32_t recv(uint8_t *buffer, uint32_t buffer_size, uint32_t timeout = 1000);
+    uint32_t recv(uint8_t *buffer, uint32_t buffer_size, uint32_t timeout = 500);
     
     /**
      * Receive data from one of TCP or UDP builded already in multiple mode. 
@@ -388,7 +388,7 @@ class ESP8266 {
      * @param timeout - the time waiting data. 
      * @return the length of data received actually. 
      */
-    uint32_t recv(uint8_t mux_id, uint8_t *buffer, uint32_t buffer_size, uint32_t timeout = 1000);
+    uint32_t recv(uint8_t mux_id, uint8_t *buffer, uint32_t buffer_size, uint32_t timeout = 500);
     
     /**
      * Receive data from all of TCP or UDP builded already in multiple mode. 
@@ -402,12 +402,14 @@ class ESP8266 {
      * @param timeout - the time waiting data. 
      * @return the length of data received actually. 
      */
-    uint32_t recv(uint8_t *coming_mux_id, uint8_t *buffer, uint32_t buffer_size, uint32_t timeout = 1000);
+    uint32_t recv(uint8_t *coming_mux_id, uint8_t *buffer, uint32_t buffer_size, uint32_t timeout = 500);
 
  private:
 
     static char _receive_buffer[_ESP_MAX_READ_BUFF];
     static char _receive_char;
+    static bool _dataStarted;
+    static size_t _dataLenth;
 
     /* 
      * Empty the buffer or UART RX.
@@ -417,7 +419,7 @@ class ESP8266 {
     /* 
      * Recvive data from uart. Return all received data if target found or timeout. 
      */
-    const char* recvconst(const char* target, uint32_t timeout = 1000);
+    const char* recvconst(const char* target, uint32_t timeout = 500);
     
     /*
      * Recvive line ended with '\0' from uart.
@@ -427,23 +429,23 @@ class ESP8266 {
     /*
      * Recvive data from uart. Return all received data if one of target1 and target2 found or timeout. 
      */
-    const char* recvconst(const char* target1, const char* target2, uint32_t timeout = 1000);
+    const char* recvconst(const char* target1, const char* target2, uint32_t timeout = 500);
     
     /* 
      * Recvive data from uart. Return all received data if one of target1, target2 and target3 found or timeout. 
      */
-    const char* recvconst(const char* target1, const char* target2, const char* target3, uint32_t timeout = 1000);
+    const char* recvconst(const char* target1, const char* target2, const char* target3, uint32_t timeout = 500);
     
     /* 
      * Recvive data from uart and search first target. Return true if target found, false for timeout.
      */
-    bool recvFind(const char* target, uint32_t timeout = 1000);
+    bool recvFind(const char* target, uint32_t timeout = 500);
     
     /* 
      * Recvive data from uart and search first target and cut out the subconst char* between begin and end(excluding begin and end self). 
      * Return true if target found, false for timeout.
      */
-    bool recvFindAndFilter(const char* target, const char* begin, const char* end, const char* &data, uint32_t timeout = 1000);
+    bool recvFindAndFilter(const char* target, const char* begin, const char* end, const char* &data, uint32_t timeout = 500);
     
     /*
      * Receive a package from uart. 
