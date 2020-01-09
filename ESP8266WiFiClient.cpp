@@ -1,4 +1,5 @@
 #include "ESP8266WiFiClient.h"
+#include <stdio.h>
 
 ESP8266WiFiClient::ESP8266WiFiClient(ESP8266 const* wifi): _wifi(wifi)
 {
@@ -12,8 +13,8 @@ size_t ESP8266WiFiClient::write(const uint8_t* buf, size_t size) {
 	return _wifi->send(buf, size) ? size : 0;
 }
 
-size_t ESP8266WiFiClient::write(uint8_t) {
-	return 0;
+size_t ESP8266WiFiClient::write(uint8_t val) {
+	return _wifi->write(val);
 }
 
 int ESP8266WiFiClient::read(uint8_t* buf, size_t size) {
@@ -21,8 +22,7 @@ int ESP8266WiFiClient::read(uint8_t* buf, size_t size) {
 }
 
 int ESP8266WiFiClient::read() {
-	Serial.println("read()");
-	return 0;
+	return _wifi->read();
 }
 
 uint8_t ESP8266WiFiClient::connected() {
@@ -30,16 +30,17 @@ uint8_t ESP8266WiFiClient::connected() {
 }
 
 int ESP8266WiFiClient::connect(IPAddress ip, uint16_t port) {
-	return 0;
+	static const char ipstr[16];
+	sprintf(ipstr, "%u.%u.%u.%u", ip[0], ip[1], ip[2], ip[3]);
+	return this->connect(ipstr, port);
 }
 
 int ESP8266WiFiClient::peek() {
-	Serial.println("peek()");
-	return 0;
+	return _wifi->peek();
 }
 
 void ESP8266WiFiClient::flush() {
-	Serial.println("flush()");
+	_wifi->flush();
 }
 
 void ESP8266WiFiClient::stop() {
@@ -47,9 +48,9 @@ void ESP8266WiFiClient::stop() {
 }
 
 int ESP8266WiFiClient::available() {
-	return 1;
+	return _wifi->available();
 }
 
 ESP8266WiFiClient::operator bool() {
-	return true;
+	return _wifi != nullptr;
 }

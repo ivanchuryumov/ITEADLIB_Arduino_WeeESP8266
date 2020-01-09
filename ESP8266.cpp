@@ -72,6 +72,31 @@ static char ESP8266::_receive_char;
 static bool ESP8266::_dataStarted = false;
 static size_t ESP8266::_dataLenth = SIZE_MAX;
 
+size_t ESP8266::write(uint8_t byte)
+{
+    return m_puart->write(byte);
+}
+
+int ESP8266::peek(void)
+{
+    return m_puart->peek();
+}
+
+int ESP8266::read(void)
+{
+    return m_puart->read();
+}
+
+void ESP8266::flush(void)
+{
+    return m_puart->flush();
+}
+
+int ESP8266::available(void)
+{
+    return m_puart->available();
+}
+
 bool ESP8266::kick(void)
 {
     return eAT();

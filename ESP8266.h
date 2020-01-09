@@ -61,7 +61,12 @@ class ESP8266 {
      */
     ESP8266(HardwareSerial &uart, uint32_t baud = 9600);
 #endif
-    
+
+    int peek(void);
+    size_t write(uint8_t byte);
+    int read(void);
+    int available(void);
+    void flush(void);
     
     /** 
      * Verify ESP8266 whether live or not. 
